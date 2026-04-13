@@ -292,13 +292,14 @@ export default function SwapWidget() {
           </div>
         </div>
 
-        {/* Warning για USDC, CH OG κλπ. */}
+        {/* Improved Warning */}
         {parsedAmountIn > BigInt(0) && bestAmountOut === BigInt(0) && !isWrapOrUnwrap && !quoting && (
           <div className="mb-4 p-3 rounded-2xl bg-[rgba(245,158,11,0.1)] border border-amber-400/30 text-amber-400 text-sm flex items-start gap-2">
             <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
             <div>
-              No liquidity found for {tokenIn.symbol} → {tokenOut.symbol}.<br />
-              Make sure there is a liquidity pool for this pair.
+              No output amount for {tokenIn.symbol} → {tokenOut.symbol}.<br />
+              This usually means low/no liquidity in the pool or the pair is traded on V3.<br />
+              Try adding liquidity or check if the pool exists on the DEX.
             </div>
           </div>
         )}
