@@ -1,8 +1,7 @@
 import { defineChain } from "viem";
 import { createConfig, http } from "wagmi";
-import { injected, metaMask, walletConnect } from "wagmi/connectors";
+import { injected, walletConnect } from "wagmi/connectors";
 
-// ── Monad Mainnet chain definition ───────────────────────────
 export const monad = defineChain({
   id: 143,
   name: "Monad",
@@ -25,14 +24,12 @@ export const monad = defineChain({
   testnet: false,
 });
 
-// ── Wagmi config ─────────────────────────────────────────────
 export const wagmiConfig = createConfig({
   chains: [monad],
   connectors: [
     injected(),
-    metaMask(),
     walletConnect({
-      projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "aquadex-monad",
+      projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID || "aquadex",
     }),
   ],
   transports: {
