@@ -142,11 +142,27 @@ export default function TokenSelectModal({ selected, onSelect, exclude }: Props)
       try {
         if (!publicClient) throw new Error("no client");
         const addr = search as `0x${string}`;
+
         const [name, symbol, decimals] = await Promise.all([
-          publicClient.readContract({ address: addr, abi: ERC20_LOOKUP_ABI, functionName: "name" }),
-          publicClient.readContract({ address: addr, abi: ERC20_LOOKUP_ABI, functionName: "symbol" }),
-          publicClient.readContract({ address: addr, abi: ERC20_LOOKUP_ABI, functionName: "decimals" }),
+          publicClient.readContract({
+            address: addr,
+            abi: ERC20_LOOKUP_ABI,
+            functionName: "name",
+          } as const),
+
+          publicClient.readContract({
+            address: addr,
+            abi: ERC20_LOOKUP_ABI,
+            functionName: "symbol",
+          } as const),
+
+          publicClient.readContract({
+            address: addr,
+            abi: ERC20_LOOKUP_ABI,
+            functionName: "decimals",
+          } as const),
         ]);
+
         setLookedUp({
           address: search,
           name: name as string,
