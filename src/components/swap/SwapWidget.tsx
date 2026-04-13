@@ -46,7 +46,7 @@ export default function SwapWidget() {
     query: { enabled: !!address },
   });
 
-  // ERC-20 balance for tokenIn (skip if native)
+  // ERC-20 balance for tokenIn
   const { data: erc20BalIn } = useReadContract({
     address: tokenIn.address as `0x${string}`,
     abi: ERC20_ABI,
@@ -55,7 +55,7 @@ export default function SwapWidget() {
     query: { enabled: !!address && !nativeIn },
   });
 
-  // ERC-20 balance for tokenOut (skip if native)
+  // ERC-20 balance for tokenOut
   const { data: erc20BalOut } = useReadContract({
     address: tokenOut.address as `0x${string}`,
     abi: ERC20_ABI,
@@ -69,7 +69,7 @@ export default function SwapWidget() {
   const balInFmt  = balInRaw  !== undefined ? parseFloat(formatUnits(balInRaw,  tokenIn.decimals)).toFixed(4)  : "0.0000";
   const balOutFmt = balOutRaw !== undefined ? parseFloat(formatUnits(balOutRaw, tokenOut.decimals)).toFixed(4) : "0.0000";
 
-  // Allowance check (only for ERC-20 tokenIn)
+  // Allowance (μόνο για ERC-20)
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: tokenIn.address as `0x${string}`,
     abi: ERC20_ABI,
@@ -85,23 +85,31 @@ export default function SwapWidget() {
     allowance !== undefined &&
     (allowance as bigint) < parsedAmountIn;
 
-  // Quote — uses effective addresses (WMON for native MON)
+  // === QUOTE με Uniswap V2 getAmountsOut + wrap/unwrap fix ===
   const effectiveIn  = getEffectiveAddress(tokenIn);
   const effectiveOut = getEffectiveAddress(tokenOut);
+  const isWrapOrUnwrap = effectiveIn.toLowerCase() === effectiveOut.toLowerCase();
 
-  const { data: quoteData, isLoading: quoting, refetch: refetchQuote } = useReadContract({
-    address: CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`,
-    abi: UNIVERSAL_ROUTER_ABI,
-    functionName: "quoteBest",
-    args: [effectiveIn as `0x${string}`, effectiveOut as `0x${string}`, parsedAmountIn],
+  const { data: amountsOutData, isLoading: quoting, refetch: refetchQuote } = useReadContract({
+    address: CONTRACTS.V2_ROUTER as `0x${string}`,
+    abi: V2_ROUTER_ABI,
+    functionName: "getAmountsOut",
+    args: isWrapOrUnwrap 
+      ? undefined 
+      : [parsedAmountIn, [effectiveIn as `0x${string}`, effectiveOut as `0x${string}`]],
     query: {
-      enabled: parsedAmountIn > BigInt(0) && effectiveIn !== effectiveOut,
-      refetchInterval: 12000,
+      enabled: parsedAmountIn > BigInt(0) && !isWrapOrUnwrap,
+      refetchInterval: 8000,
     },
   });
 
-  const bestAmountOut: bigint = quoteData ? (quoteData as any)[0] as bigint : BigInt(0);
-  const bestPool: number      = quoteData ? (quoteData as any)[1] as number  : 0;
+  let bestAmountOut: bigint = BigInt(0);
+  if (isWrapOrUnwrap) {
+    bestAmountOut = parsedAmountIn; // 1:1 MON ↔ WMON
+  } else if (amountsOutData && Array.isArray(amountsOutData) && amountsOutData.length >= 2) {
+    bestAmountOut = amountsOutData[1] as bigint;
+  }
+
   const amountOutFmt = bestAmountOut > BigInt(0) && tokenOut
     ? parseFloat(formatUnits(bestAmountOut, tokenOut.decimals)).toFixed(6)
     : "";
@@ -128,12 +136,35 @@ export default function SwapWidget() {
 
   function handleSwap() {
     if (!address || parsedAmountIn === BigInt(0) || bestAmountOut === BigInt(0)) return;
+
     const slippageBps = BigInt(Math.floor(slippage * 100));
     const amountOutMin = bestAmountOut * (BigInt(10000) - slippageBps) / BigInt(10000);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800);
     const wmon = CONTRACTS.WMON as `0x${string}`;
 
-    // MON → Token: swapExactETHForTokens
+    // === WRAP / UNWRAP ===
+    if (isWrapOrUnwrap) {
+      if (nativeIn) {
+        // MON → WMON
+        doSwap({
+          address: wmon,
+          abi: ERC20_ABI,
+          functionName: "deposit",
+          value: parsedAmountIn,
+        } as any);
+      } else {
+        // WMON → MON
+        doSwap({
+          address: wmon,
+          abi: ERC20_ABI,
+          functionName: "withdraw",
+          args: [parsedAmountIn],
+        } as any);
+      }
+      return;
+    }
+
+    // MON → Token (όχι WMON)
     if (nativeIn && !nativeOut) {
       doSwap({
         address: CONTRACTS.V2_ROUTER as `0x${string}`,
@@ -145,7 +176,7 @@ export default function SwapWidget() {
       return;
     }
 
-    // Token → MON: swapExactTokensForETH
+    // Token → MON
     if (!nativeIn && nativeOut) {
       doSwap({
         address: CONTRACTS.V2_ROUTER as `0x${string}`,
@@ -156,21 +187,21 @@ export default function SwapWidget() {
       return;
     }
 
-    // Token → Token: Universal Router
+    // Token → Token (Universal Router)
     doSwap({
       address: CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`,
       abi: UNIVERSAL_ROUTER_ABI,
       functionName: "exactInputSingle",
       args: [{
-        tokenIn:          effectiveIn  as `0x${string}`,
-        tokenOut:         effectiveOut as `0x${string}`,
-        recipient:        address,
+        tokenIn: effectiveIn as `0x${string}`,
+        tokenOut: effectiveOut as `0x${string}`,
+        recipient: address,
         deadline,
-        amountIn:         parsedAmountIn,
+        amountIn: parsedAmountIn,
         amountOutMinimum: amountOutMin,
-        preferredV3Fee:   0,
-        forceV2:          false,
-        forceV3:          false,
+        preferredV3Fee: 0,
+        forceV2: false,
+        forceV3: false,
       }],
     } as any);
   }
@@ -292,7 +323,7 @@ export default function SwapWidget() {
               <span>Route</span>
               <span className="flex items-center gap-1.5 text-[#00c8e8]">
                 <Zap size={10} />
-                {nativeIn || nativeOut ? "Classic V2 (MON)" : bestPool === 0 ? "Classic V2" : "Concentrated V3"}
+                {nativeIn || nativeOut ? "Classic V2 (MON)" : "Classic V2"}
               </span>
             </div>
             <div className="flex justify-between text-white/40">
@@ -311,7 +342,7 @@ export default function SwapWidget() {
           </div>
         )}
 
-        {/* Action */}
+        {/* Action Button */}
         {wrongNetwork ? (
           <button onClick={() => switchChain({ chainId: monad.id })}
             className="btn-aqua w-full py-4 rounded-2xl text-base">
@@ -330,7 +361,7 @@ export default function SwapWidget() {
           </button>
         ) : (
           <button onClick={handleSwap}
-            disabled={btnLoading || parsedAmountIn === BigInt(0) || (bestAmountOut === BigInt(0) && !(nativeIn || nativeOut))}
+            disabled={btnLoading || parsedAmountIn === BigInt(0) || bestAmountOut === BigInt(0)}
             className="btn-aqua w-full py-4 rounded-2xl text-base disabled:opacity-40 disabled:cursor-not-allowed">
             {swapping || waitingSwap
               ? <span className="flex items-center justify-center gap-2"><RefreshCw size={15} className="animate-spin" />Swapping...</span>
