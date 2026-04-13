@@ -116,6 +116,17 @@ export default function SwapWidget() {
 
   useEffect(() => { if (swapSuccess) { setAmountIn(""); refetchQuote(); } }, [swapSuccess]);
 
+  // Handle Approve
+  function handleApprove() {
+    doApprove({
+      address: tokenIn.address as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`, maxUint256],
+    } as any);
+  }
+
+  // Handle Swap
   function handleSwap() {
     if (!address || parsedAmountIn === BigInt(0)) return;
 
