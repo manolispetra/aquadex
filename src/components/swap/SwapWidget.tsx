@@ -126,7 +126,7 @@ export default function SwapWidget() {
     } as any);
   }
 
-  // Handle Swap
+  // Handle Swap - Διορθωμένο
   function handleSwap() {
     if (!address || parsedAmountIn === BigInt(0)) return;
 
@@ -165,7 +165,7 @@ export default function SwapWidget() {
       return;
     }
 
-    // Token → Token
+    // Token → Token (με forceV2 για καλύτερη συμβατότητα με custom tokens)
     doSwap({
       address: CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`,
       abi: UNIVERSAL_ROUTER_ABI,
@@ -293,6 +293,17 @@ export default function SwapWidget() {
             <TokenSelectModal selected={tokenOut} onSelect={setTokenOut} exclude={tokenIn.address} />
           </div>
         </div>
+
+        {/* Warning για custom tokens χωρίς liquidity */}
+        {parsedAmountIn > BigInt(0) && bestAmountOut === BigInt(0) && !isWrapOrUnwrap && !quoting && (
+          <div className="mb-4 p-3 rounded-2xl bg-[rgba(245,158,11,0.1)] border border-amber-400/30 text-amber-400 text-sm flex items-start gap-2">
+            <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
+            <div>
+              No liquidity found for {tokenIn.symbol} → {tokenOut.symbol}.<br />
+              Try adding liquidity first or choose another pair.
+            </div>
+          </div>
+        )}
 
         {/* Route info */}
         {bestAmountOut > BigInt(0) && (
