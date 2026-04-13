@@ -24,7 +24,7 @@ export default function SwapWidget() {
   const { switchChain } = useSwitchChain();
 
   const [tokenIn,  setTokenIn]  = useState<Token>(MON_NATIVE);
-  const [tokenOut, setTokenOut] = useState<Token>(AQUA_TOKEN); // άλλαξε αν θες
+  const [tokenOut, setTokenOut] = useState<Token>(MON_NATIVE);   // ← Διορθώθηκε εδώ
   const [amountIn, setAmountIn] = useState("");
   const [slippage, setSlippage] = useState(0.5);
   const [showSettings, setShowSettings] = useState(false);
@@ -109,83 +109,68 @@ export default function SwapWidget() {
     ? parseFloat(formatUnits(bestAmountOut, tokenOut.decimals)).toFixed(6)
     : "";
 
-  // Contracts
+  // Write contracts
   const { writeContract: doApprove, isPending: approving } = useWriteContract();
   const { writeContract: doSwap, data: swapTxHash, isPending: swapping } = useWriteContract();
   const { isSuccess: swapSuccess } = useWaitForTransactionReceipt({ hash: swapTxHash });
 
   useEffect(() => { if (swapSuccess) { setAmountIn(""); refetchQuote(); } }, [swapSuccess]);
 
-  // ==================== FIXED handleSwap ====================
   function handleSwap() {
-    if (!address || parsedAmountIn === BigInt(0)) {
-      console.log("❌ No address or amount");
-      return;
-    }
+    if (!address || parsedAmountIn === BigInt(0)) return;
 
     const slippageBps = BigInt(Math.floor(slippage * 100));
     const amountOutMin = bestAmountOut * (BigInt(10000) - slippageBps) / BigInt(10000);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800);
     const wmon = CONTRACTS.WMON as `0x${string}`;
 
-    console.log("🔄 Swap started:", { tokenIn: tokenIn.symbol, tokenOut: tokenOut.symbol, isWrap: isWrapOrUnwrap });
-
-    try {
-      if (isWrapOrUnwrap) {
-        if (nativeIn) {
-          // MON → WMON
-          doSwap({ address: wmon, abi: ERC20_ABI, functionName: "deposit", value: parsedAmountIn } as any);
-        } else {
-          // WMON → MON
-          doSwap({ address: wmon, abi: ERC20_ABI, functionName: "withdraw", args: [parsedAmountIn] } as any);
-        }
-        return;
+    if (isWrapOrUnwrap) {
+      if (nativeIn) {
+        doSwap({ address: wmon, abi: ERC20_ABI, functionName: "deposit", value: parsedAmountIn } as any);
+      } else {
+        doSwap({ address: wmon, abi: ERC20_ABI, functionName: "withdraw", args: [parsedAmountIn] } as any);
       }
-
-      if (nativeIn && !nativeOut) {
-        // MON → Token
-        doSwap({
-          address: CONTRACTS.V2_ROUTER as `0x${string}`,
-          abi: V2_ROUTER_ABI,
-          functionName: "swapExactETHForTokens",
-          value: parsedAmountIn,
-          args: [amountOutMin, [wmon, tokenOut.address as `0x${string}`], address, deadline],
-        } as any);
-        return;
-      }
-
-      if (!nativeIn && nativeOut) {
-        // Token → MON
-        doSwap({
-          address: CONTRACTS.V2_ROUTER as `0x${string}`,
-          abi: V2_ROUTER_ABI,
-          functionName: "swapExactTokensForETH",
-          args: [parsedAmountIn, amountOutMin, [tokenIn.address as `0x${string}`, wmon], address, deadline],
-        } as any);
-        return;
-      }
-
-      // Token → Token (Universal Router) - FIXED arguments
-      doSwap({
-        address: CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`,
-        abi: UNIVERSAL_ROUTER_ABI,
-        functionName: "exactInputSingle",
-        args: [{
-          tokenIn: effectiveIn as `0x${string}`,
-          tokenOut: effectiveOut as `0x${string}`,
-          recipient: address,
-          deadline: deadline,
-          amountIn: parsedAmountIn,
-          amountOutMinimum: amountOutMin,
-          preferredV3Fee: 0,
-          forceV2: true,        // ← προσθέσαμε forceV2: true
-          forceV3: false,
-        }],
-      } as any);
-
-    } catch (error) {
-      console.error("Swap error:", error);
+      return;
     }
+
+    if (nativeIn && !nativeOut) {
+      doSwap({
+        address: CONTRACTS.V2_ROUTER as `0x${string}`,
+        abi: V2_ROUTER_ABI,
+        functionName: "swapExactETHForTokens",
+        value: parsedAmountIn,
+        args: [amountOutMin, [wmon, tokenOut.address as `0x${string}`], address, deadline],
+      } as any);
+      return;
+    }
+
+    if (!nativeIn && nativeOut) {
+      doSwap({
+        address: CONTRACTS.V2_ROUTER as `0x${string}`,
+        abi: V2_ROUTER_ABI,
+        functionName: "swapExactTokensForETH",
+        args: [parsedAmountIn, amountOutMin, [tokenIn.address as `0x${string}`, wmon], address, deadline],
+      } as any);
+      return;
+    }
+
+    // Token → Token
+    doSwap({
+      address: CONTRACTS.UNIVERSAL_ROUTER as `0x${string}`,
+      abi: UNIVERSAL_ROUTER_ABI,
+      functionName: "exactInputSingle",
+      args: [{
+        tokenIn: effectiveIn as `0x${string}`,
+        tokenOut: effectiveOut as `0x${string}`,
+        recipient: address,
+        deadline,
+        amountIn: parsedAmountIn,
+        amountOutMinimum: amountOutMin,
+        preferredV3Fee: 0,
+        forceV2: true,
+        forceV3: false,
+      }],
+    } as any);
   }
 
   function flipTokens() {
@@ -200,9 +185,131 @@ export default function SwapWidget() {
     <div className="w-full max-w-[460px] mx-auto">
       <div className="glass-card rounded-3xl p-4 shadow-[0_8px_48px_rgba(0,0,0,0.5)]">
 
-        {/* Όλο το UI σου μένει ακριβώς ίδιο μέχρι το button */}
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-1">
+            <button className="tab-btn active">Swap</button>
+            <button className="tab-btn" onClick={() => window.location.href = "/pools/add"}>
+              Add Liquidity
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => refetchQuote()}
+              className="p-1.5 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors">
+              <RefreshCw size={14} className={quoting ? "animate-spin" : ""} />
+            </button>
+            <button onClick={() => setShowSettings(!showSettings)}
+              className={clsx("p-1.5 rounded-lg transition-colors",
+                showSettings ? "text-[#00c8e8] bg-[rgba(0,200,232,0.1)]" : "text-white/30 hover:text-white/60 hover:bg-white/5")}>
+              <Settings size={14} />
+            </button>
+          </div>
+        </div>
 
-        {/* Action Button - FIXED disabled condition */}
+        {/* Settings panel - ίδιο όπως πριν */}
+        {showSettings && (
+          <div className="mb-4 p-3 rounded-2xl bg-[rgba(0,0,0,0.3)] border border-[rgba(0,200,232,0.08)] animate-slide-up">
+            <div className="text-xs font-semibold text-white/40 mb-2.5 uppercase tracking-widest"
+              style={{ fontFamily: "var(--font-display)" }}>Slippage</div>
+            <div className="flex gap-2">
+              {SLIPPAGE_OPTIONS.map((s) => (
+                <button key={s} onClick={() => { setSlippage(s); setCustomSlippage(""); }}
+                  className={clsx("px-3 py-1.5 rounded-lg text-xs font-mono transition-colors",
+                    slippage === s && !customSlippage
+                      ? "bg-[rgba(0,200,232,0.2)] text-[#00c8e8] border border-[rgba(0,200,232,0.3)]"
+                      : "bg-white/5 text-white/50 hover:bg-white/8")}>
+                  {s}%
+                </button>
+              ))}
+              <div className="relative flex-1">
+                <input type="number" placeholder="Custom" value={customSlippage}
+                  onChange={(e) => { setCustomSlippage(e.target.value); const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0 && v < 50) setSlippage(v); }}
+                  className="w-full px-2 py-1.5 pr-6 rounded-lg text-xs text-right bg-[rgba(0,0,0,0.4)] border border-[rgba(0,200,232,0.1)] text-white outline-none font-mono" />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white/30">%</span>
+              </div>
+            </div>
+            {slippage > 5 && (
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-400">
+                <AlertTriangle size={11} /> High slippage — risk of front-running
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Token In - ίδιο */}
+        <div className="rounded-2xl bg-[rgba(0,0,0,0.38)] border border-[rgba(255,255,255,0.05)] p-3 mb-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-white/30">You pay</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-mono text-white/30">Bal: {balInFmt}</span>
+              {balInRaw && balInRaw > BigInt(0) && (
+                <button
+                  onClick={() => setAmountIn(parseFloat(formatUnits(balInRaw, tokenIn.decimals)).toFixed(6))}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(0,200,232,0.1)] text-[#00c8e8] hover:bg-[rgba(0,200,232,0.2)] transition-colors">
+                  MAX
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input type="number" placeholder="0.0" value={amountIn}
+              onChange={(e) => setAmountIn(e.target.value)}
+              className="flex-1 bg-transparent text-[26px] font-mono text-white placeholder-white/20 outline-none min-w-0" />
+            <TokenSelectModal selected={tokenIn} onSelect={setTokenIn} exclude={tokenOut.address} />
+          </div>
+        </div>
+
+        {/* Flip */}
+        <div className="flex justify-center -my-1 relative z-10">
+          <button onClick={flipTokens}
+            className="w-9 h-9 rounded-xl bg-[#091426] border-2 border-[rgba(0,200,232,0.15)] flex items-center justify-center text-white/30 hover:text-[#00c8e8] hover:border-[rgba(0,200,232,0.4)] transition-all hover:rotate-180 duration-300">
+            <ArrowUpDown size={14} />
+          </button>
+        </div>
+
+        {/* Token Out */}
+        <div className="rounded-2xl bg-[rgba(0,0,0,0.38)] border border-[rgba(255,255,255,0.05)] p-3 mt-1 mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-white/30">You receive</span>
+            <span className="text-xs font-mono text-white/30">Bal: {balOutFmt}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 text-[26px] font-mono text-white">
+              {quoting && parsedAmountIn > BigInt(0)
+                ? <span className="text-white/30 text-xl">Loading...</span>
+                : amountOutFmt || "0.0"}
+            </div>
+            <TokenSelectModal selected={tokenOut} onSelect={setTokenOut} exclude={tokenIn.address} />
+          </div>
+        </div>
+
+        {/* Route info */}
+        {bestAmountOut > BigInt(0) && (
+          <div className="mb-3 px-3 py-2.5 rounded-xl bg-[rgba(0,200,232,0.03)] border border-[rgba(0,200,232,0.08)] text-xs space-y-1.5">
+            <div className="flex justify-between text-white/40">
+              <span>Route</span>
+              <span className="flex items-center gap-1.5 text-[#00c8e8]">
+                <Zap size={10} />
+                {nativeIn || nativeOut ? "Classic V2 (MON)" : "Classic V2"}
+              </span>
+            </div>
+            <div className="flex justify-between text-white/40">
+              <span>Min. received</span>
+              <span className="font-mono text-white/60">
+                {parseFloat(formatUnits(
+                  bestAmountOut * (BigInt(10000) - BigInt(Math.floor(slippage * 100))) / BigInt(10000),
+                  tokenOut.decimals
+                )).toFixed(6)} {tokenOut.symbol}
+              </span>
+            </div>
+            <div className="flex justify-between text-white/40">
+              <span>Fee</span>
+              <span>0.25%</span>
+            </div>
+          </div>
+        )}
+
+        {/* Action Button */}
         {wrongNetwork ? (
           <button onClick={() => switchChain({ chainId: monad.id })}
             className="btn-aqua w-full py-4 rounded-2xl text-base">
@@ -223,18 +330,21 @@ export default function SwapWidget() {
             disabled={btnLoading || parsedAmountIn === BigInt(0)}
             className="btn-aqua w-full py-4 rounded-2xl text-base disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {swapping || waitingSwap 
-              ? "Swapping..." 
-              : swapSuccess 
-                ? "Swap complete!" 
-                : "Swap"}
+            {swapping || waitingSwap
+              ? <span className="flex items-center justify-center gap-2"><RefreshCw size={15} className="animate-spin" />Swapping...</span>
+              : swapSuccess ? "Swap complete!" : "Swap"}
           </button>
         )}
       </div>
 
+      {/* Tx success */}
       {swapSuccess && swapTxHash && (
-        <div className="mt-3 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-center">
-          Confirmed! <a href={`https://monadscan.com/tx/${swapTxHash}`} target="_blank" className="underline">View on MonadScan</a>
+        <div className="mt-3 p-3 rounded-xl bg-[rgba(0,200,100,0.08)] border border-[rgba(0,200,100,0.15)] text-sm text-green-400 text-center">
+          Confirmed!{" "}
+          <a href={"https://monadscan.com/tx/" + swapTxHash} target="_blank" rel="noopener noreferrer"
+            className="underline hover:text-green-300">
+            View on MonadScan
+          </a>
         </div>
       )}
     </div>
