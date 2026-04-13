@@ -24,7 +24,7 @@ export default function SwapWidget() {
   const { switchChain } = useSwitchChain();
 
   const [tokenIn,  setTokenIn]  = useState<Token>(MON_NATIVE);
-  const [tokenOut, setTokenOut] = useState<Token>(MON_NATIVE);   // ← Διορθώθηκε εδώ
+  const [tokenOut, setTokenOut] = useState<Token>(MON_NATIVE);
   const [amountIn, setAmountIn] = useState("");
   const [slippage, setSlippage] = useState(0.5);
   const [showSettings, setShowSettings] = useState(false);
@@ -179,7 +179,7 @@ export default function SwapWidget() {
     setAmountIn(amountOutFmt || "");
   }
 
-  const btnLoading = approving || swapping || waitingSwap;
+  const btnLoading = approving || swapping;
 
   return (
     <div className="w-full max-w-[460px] mx-auto">
@@ -206,7 +206,7 @@ export default function SwapWidget() {
           </div>
         </div>
 
-        {/* Settings panel - ίδιο όπως πριν */}
+        {/* Settings panel */}
         {showSettings && (
           <div className="mb-4 p-3 rounded-2xl bg-[rgba(0,0,0,0.3)] border border-[rgba(0,200,232,0.08)] animate-slide-up">
             <div className="text-xs font-semibold text-white/40 mb-2.5 uppercase tracking-widest"
@@ -236,7 +236,7 @@ export default function SwapWidget() {
           </div>
         )}
 
-        {/* Token In - ίδιο */}
+        {/* Token In */}
         <div className="rounded-2xl bg-[rgba(0,0,0,0.38)] border border-[rgba(255,255,255,0.05)] p-3 mb-1">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-white/30">You pay</span>
@@ -330,7 +330,7 @@ export default function SwapWidget() {
             disabled={btnLoading || parsedAmountIn === BigInt(0)}
             className="btn-aqua w-full py-4 rounded-2xl text-base disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {swapping || waitingSwap
+            {swapping 
               ? <span className="flex items-center justify-center gap-2"><RefreshCw size={15} className="animate-spin" />Swapping...</span>
               : swapSuccess ? "Swap complete!" : "Swap"}
           </button>
