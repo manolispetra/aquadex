@@ -144,24 +144,24 @@ export default function TokenSelectModal({ selected, onSelect, exclude }: Props)
         const addr = search as `0x${string}`;
 
         const [name, symbol, decimals] = await Promise.all([
-          // ✅ Πιο ισχυρή type assertion
+          // ✅ Βελτιωμένη type assertion που καλύπτει το authorizationList
           publicClient.readContract({
             address: addr,
             abi: ERC20_LOOKUP_ABI,
             functionName: "name",
-          } as any),
+          } satisfies Parameters<typeof publicClient.readContract>[0]),
 
           publicClient.readContract({
             address: addr,
             abi: ERC20_LOOKUP_ABI,
             functionName: "symbol",
-          } as any),
+          } satisfies Parameters<typeof publicClient.readContract>[0]),
 
           publicClient.readContract({
             address: addr,
             abi: ERC20_LOOKUP_ABI,
             functionName: "decimals",
-          } as any),
+          } satisfies Parameters<typeof publicClient.readContract>[0]),
         ]);
 
         setLookedUp({
