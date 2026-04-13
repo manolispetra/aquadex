@@ -1,7 +1,5 @@
 // ============================================================
-// lib/contracts.ts — AquaDex deployed contract addresses
-// Auto-generated from deployments/latest.json
-// Deployed on Monad Mainnet — Chain ID 143
+// lib/contracts.ts — AquaDex contract addresses (Monad Mainnet)
 // ============================================================
 
 export const CONTRACTS = {
@@ -19,9 +17,6 @@ export const CONTRACTS = {
 export const V2_INIT_CODE_HASH =
   "0xf793522c82815a3fb6018f2d66ea1d8ebc64734ad9a9e4297ba1bdd0b748fff5";
 
-export const DEPLOYER = "0xF0e864FBAB52a87E851d91C3f98966CEB78e5730";
-
-// V3 fee tiers
 export const V3_FEE_TIERS = [
   { fee: 100,   label: "0.01%", tickSpacing: 1   },
   { fee: 500,   label: "0.05%", tickSpacing: 10  },
@@ -29,28 +24,5 @@ export const V3_FEE_TIERS = [
   { fee: 10000, label: "1.00%", tickSpacing: 200 },
 ] as const;
 
-// Known tokens on Monad (expand as ecosystem grows)
-export const KNOWN_TOKENS: Token[] = [
-  {
-    address: CONTRACTS.WMON,
-    symbol: "WMON",
-    name: "Wrapped MON",
-    decimals: 18,
-    logoURI: "/tokens/wmon.png",
-  },
-  {
-    address: CONTRACTS.AQUA_TOKEN,
-    symbol: "AQUA",
-    name: "AquaDex",
-    decimals: 18,
-    logoURI: "/logo.png",
-  },
-];
-
-export interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-  logoURI?: string;
-}
+// Re-export Token type from tokens.ts for convenience
+export type { Token } from "./tokens";

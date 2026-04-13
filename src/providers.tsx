@@ -22,10 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             fontStack: "system",
             overlayBlur: "small",
           })}
-          appInfo={{
-            appName: "AquaDex",
-            learnMoreUrl: "https://aquadex.fi",
-          }}
+          appInfo={{ appName: "AquaDex", learnMoreUrl: "https://aquadex.fi" }}
         >
           {children}
         </RainbowKitProvider>
